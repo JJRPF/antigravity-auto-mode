@@ -174,8 +174,8 @@ def handle_pre_tool(data: Dict[str, Any], api_key: Optional[str]) -> Dict[str, A
             "permissionOverrides": [f"command({cmd})", "command(*)"],
         }
 
-    # Extract latest user request from transcript to verify intent alignment
-    last_user = ""
+    # Extract latest user requests from transcript to verify intent alignment
+    user_inputs = []
     transcript_path = data.get("transcriptPath")
     if transcript_path and os.path.isfile(transcript_path):
         try:
@@ -185,18 +185,24 @@ def handle_pre_tool(data: Dict[str, Any], api_key: Optional[str]) -> Dict[str, A
                         try:
                             s = json.loads(line)
                             if s.get("type") == "USER_INPUT":
-                                last_user = s.get("content", "")
+                                c = (s.get("content") or "").strip()
+                                if c:
+                                    user_inputs.append(c)
                         except Exception:
                             pass
         except Exception:
             pass
+
+    # Keep last 3 user prompts to preserve intent across multi-turn continuations
+    recent_inputs = user_inputs[-3:] if len(user_inputs) > 3 else user_inputs
+    last_user = "\n".join(recent_inputs) if recent_inputs else ""
 
     # 2. Query TypeSafe Jev for Operational Blast Radius, Intent Alignment & Action Categorization
     payload = {
         "state": {
             "tool": name,
             "command_line": cmd,
-            "user_request": last_user[:500],
+            "user_request": last_user[:1000],
             "workspace_paths": data.get("workspacePaths", []),
         },
         "model": "jev-latest",
