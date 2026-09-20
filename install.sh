@@ -40,17 +40,31 @@ else
     echo "[*] Existing TypeSafe config found at $CONFIG_FILE."
 fi
 
-# 4. Install Hook Script
+# 4. Install Hook Script and Laya Daemon
 cp "$REPO_DIR/typesafe_hook.py" "$TYPESAFE_CONFIG_DIR/typesafe_hook.py"
 chmod +x "$TYPESAFE_CONFIG_DIR/typesafe_hook.py"
-echo "[+] Installed lifecycle hook to $TYPESAFE_CONFIG_DIR/typesafe_hook.py."
+cp "$REPO_DIR/laya_daemon.py" "$TYPESAFE_CONFIG_DIR/laya_daemon.py"
+chmod +x "$TYPESAFE_CONFIG_DIR/laya_daemon.py"
+echo "[+] Installed lifecycle hook and Laya daemon to $TYPESAFE_CONFIG_DIR."
 
-# 5. Install CLI Diagnostic Tool
+# 5. Setup Local Laya Virtual Environment
+VENV_DIR="$TYPESAFE_CONFIG_DIR/venv"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "[*] Setting up local Python environment for Laya at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install laya --extra-index-url https://download.pytorch.org/whl/cpu
+    echo "[+] Laya local engine installed."
+else
+    echo "[*] Existing Laya environment found at $VENV_DIR."
+fi
+
+# 6. Install CLI Diagnostic Tool
 cp "$REPO_DIR/typesafe_auto_mode.py" "$LOCAL_BIN_DIR/typesafe-auto-mode"
 chmod +x "$LOCAL_BIN_DIR/typesafe-auto-mode"
 echo "[+] Installed CLI diagnostic utility to $LOCAL_BIN_DIR/typesafe-auto-mode."
 
-# 6. Configure Antigravity Baseline Settings (~/.gemini/antigravity-cli/settings.json)
+# 7. Configure Antigravity Baseline Settings (~/.gemini/antigravity-cli/settings.json)
 python3 - <<EOF
 import json, os
 
@@ -93,7 +107,7 @@ with open(settings_path, "w", encoding="utf-8") as f:
 print("[+] Configured wildcard baseline permissions in", settings_path)
 EOF
 
-# 7. Configure Lifecycle Hooks (~/.gemini/config/hooks.json)
+# 8. Configure Lifecycle Hooks (~/.gemini/config/hooks.json)
 python3 - <<EOF
 import json, os
 
@@ -136,7 +150,7 @@ with open(hooks_path, "w", encoding="utf-8") as f:
 print("[+] Configured PreToolUse and Stop hooks in", hooks_path)
 EOF
 
-# 8. Configure Autonomous Execution Standards (~/.gemini/config/AGENTS.md)
+# 9. Configure Autonomous Execution Standards (~/.gemini/config/AGENTS.md)
 AGENTS_MD="$GEMINI_CONFIG_DIR/AGENTS.md"
 STANDARDS_HEADER="# Autonomous Execution Standards (Claude Code Auto Mode Emulation)"
 

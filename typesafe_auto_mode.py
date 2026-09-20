@@ -8,12 +8,28 @@ import os
 import sys
 import json
 import re
+import urllib.request
 
 CONFIG_PATH = os.path.expanduser("~/.config/typesafe/config.json")
 HOOK_PATH = os.path.expanduser("~/.config/typesafe/typesafe_hook.py")
 HOOKS_JSON = os.path.expanduser("~/.gemini/config/hooks.json")
 SETTINGS_JSON = os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
 LOG_PATH = "/tmp/typesafe_hook.log"
+LAYA_URL = "http://127.0.0.1:8765"
+
+
+def check_laya():
+    try:
+        req = urllib.request.Request(f"{LAYA_URL}/health", method="GET")
+        with urllib.request.urlopen(req, timeout=0.3) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode())
+                idle = data.get("idle_seconds", 0)
+                timeout = data.get("idle_timeout", 600)
+                return True, f"Online (idle: {idle:.0f}s / {timeout}s auto-unload)"
+    except Exception:
+        pass
+    return False, "Standby (Auto-spawns on next tool call)"
 
 
 def get_status():
@@ -21,7 +37,13 @@ def get_status():
     print("      TypeSafe Auto-Mode Guardian (Claude Code Emulation)       ")
     print("================================================================")
 
-    # 1. API Key Check
+    # 1. Decision Engine Status
+    laya_online, laya_msg = check_laya()
+    print(f"[*] Primary Engine       : Local Laya (convaiinnovations/laya-typed-decisions)")
+    print(f"[*] Laya Daemon Status   : {laya_msg}")
+    print(f"[*] Power & Sleep Guard  : Active (Auto-shutdown on system suspend / lid close)")
+
+    # 2. Cloud Fallback Status
     api_key = None
     if os.path.isfile(CONFIG_PATH):
         try:
@@ -30,20 +52,18 @@ def get_status():
         except Exception:
             pass
     has_key = bool(api_key and len(api_key) > 10)
-    key_disp = f"Active ({api_key[:12]}...)" if has_key else "Missing / Not Configured"
-    print(f"[*] Classifier Model     : TypeSafe Jev (jev-latest)")
+    key_disp = f"Active ({api_key[:12]}...)" if has_key else "Missing / Offline Fallback Engaged"
+    print(f"[*] Fallback Cloud Model : TypeSafe Jev (jev-latest)")
     print(f"[*] API Key Status       : {key_disp}")
     print(f"[*] Hook Implementation  : {HOOK_PATH} (exists: {os.path.exists(HOOK_PATH)})")
 
-    # 2. Settings Baseline
-    has_settings = False
+    # 3. Settings Baseline
     grants = []
     if os.path.isfile(SETTINGS_JSON):
         try:
             with open(SETTINGS_JSON, "r") as f:
                 s = json.load(f)
                 grants = s.get("permissions", {}).get("allow", [])
-                has_settings = True
         except Exception:
             pass
     print(f"[*] Settings Baseline    : {len(grants)} wildcard grants configured")
@@ -52,7 +72,7 @@ def get_status():
     if len(grants) > 4:
         print(f"      - ... ({len(grants)-4} more)")
 
-    # 3. Hooks Integration
+    # 4. Hooks Integration
     hook_matched = False
     if os.path.isfile(HOOKS_JSON):
         try:
@@ -65,23 +85,25 @@ def get_status():
             pass
     print(f"[*] PreToolUse Matcher   : {'* (All Tools Covered)' if hook_matched else 'Incomplete'}")
 
-    # 4. Features Active
+    # 5. Core Invariants
     print(f"[*] Core Invariants      :")
     print(f"      - Autonomous Momentum    : [ENABLED] Zero approval prompts on safe routine tools")
-    print(f"      - Intent-Aware Gate      : [ENABLED] Jev classifies prompt alignment for releases")
+    print(f"      - Chaining Token Guard   : [ENABLED] Compound commands (&&, ;) forbidden from fast-path")
+    print(f"      - Credential Exfiltration: [ENABLED] ~/.ssh, .env, and outbound POST payloads gated")
+    print(f"      - Multi-Tool Boundary    : [ENABLED] write_to_file outside workspace requires confirmation")
+    print(f"      - Subcommand Overrides   : [ENABLED] Exact pipeline whitelisting (zero wildcard leaks)")
     print(f"      - Rejection Recovery     : [ENABLED] Never aborts or cancels on user denial")
-    print(f"      - Grounded Verification  : [ENABLED] Stop hook requires evidence before completion")
-    print(f"      - Destructive Guard      : [ENABLED] Tier 3 hard-deny on host disk wiping")
+    print(f"      - Grounded Verification  : [ENABLED] Stop hook requires test evidence before completion")
 
-    # 5. Audit Stats
+    # 6. Audit Stats
     if os.path.isfile(LOG_PATH):
         try:
             with open(LOG_PATH, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-            invocations = len([l for l in lines if "PreToolUse invoked" in l])
-            denials = len([l for l in lines if "deny" in l or "Blocked command" in l])
-            escalations = len([l for l in lines if "force_ask" in l or "Escalation" in l])
-            user_denials = len([l for l in lines if "User denial detected" in l])
+            invocations = len([l for l in lines if "PreToolUse" in l])
+            denials = len([l for l in lines if "deny" in l or "Blocked" in l])
+            escalations = len([l for l in lines if "force_ask" in l or "Escalation" in l or "Security Gate" in l])
+            user_denials = len([l for l in lines if "User rejection" in l or "User denial" in l])
             print(f"[*] Session Telemetry    :")
             print(f"      - Total Tools Evaluated  : {invocations}")
             print(f"      - Escalated to Modal     : {escalations}")
@@ -95,6 +117,8 @@ def get_status():
 def eval_command(cmd, user_req=""):
     import subprocess
     payload = {
+        "tool_name": "run_command",
+        "tool_input": {"CommandLine": cmd},
         "toolCall": {
             "name": "run_command",
             "args": {"CommandLine": cmd}
