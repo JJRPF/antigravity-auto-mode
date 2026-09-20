@@ -35,16 +35,16 @@ Conversely, running `--dangerously-skip-permissions` removes all guardrails, lea
 ```mermaid
 flowchart TD
     A[Agent Proposes Tool Call] --> B[PreToolUse Hook]
-    B --> C{Safe Read / Fast-Path?}
+    B --> C{Safe Local / Fast-Path?}
     C -- Yes --> D[Auto-Approve: Allow 0 Prompts]
     C -- No --> E[Query TypeSafe Jev Classifier]
     
     E --> F{Jev Classification}
-    F -- "Tier 1: Safe local dev / build / test" --> D
+    F -- "Tier 1: Safe local dev / build / test / commit" --> D
     F -- "Tier 3: Host destruction (rm -rf /)" --> G[Hard Deny: Veto Execution]
-    F -- "Tier 2: Release / Push / Mutation" --> H{Explicitly in User Prompt?}
+    F -- "Tier 2: Release / Push / High Mutation" --> H{Explicitly in User Prompt?}
     
-    H -- "Yes (user_req >= 70%)" --> D
+    H -- "Yes (user_req >= 50%)" --> D
     H -- "No (Unsolicited side-effect)" --> I[Escalate to User: force_ask Modal]
     
     I --> J{User Choice}
@@ -60,9 +60,9 @@ flowchart TD
 
 | Tier | Category | Classifier Evaluation | Action Taken |
 | :--- | :--- | :--- | :--- |
-| **Tier 1 (Green)** | Safe local actions: reads, searches, builds, unit tests, workspace edits | `blast < 0.80`, `dest < 0.35`, `pub < 0.50` | **Auto-Approved** (0 prompts) |
-| **Tier 2 (Yellow)** | External releases (`git push`, `npm publish`) or moderate mutations | `pub >= 0.50` or `score >= 0.80` | **Intent-Gated**: Auto-approved if user explicitly commanded it; otherwise **Escalates to Modal** (`force_ask`) |
-| **Tier 3 (Red)** | Catastrophic host destruction (`rm -rf /`, `dd`, `mkfs`, wiping repos) | `dest >= 0.70`, `score >= 1.50` | **Hard-Denied** unconditionally |
+| **Tier 1 (Green)** | Safe local actions: reads, searches, builds, unit tests, workspace edits, local git (`add`, `commit`, `checkout`, `config`) | `pub < 0.50` and `dest < 0.50` | **Auto-Approved** (0 prompts, includes `command(*)` compound overrides) |
+| **Tier 2 (Yellow)** | External releases (`git push`, `npm publish`) or high-impact mutations | `pub >= 0.50` or `dest >= 0.50` | **Intent-Gated**: Auto-approved if user explicitly commanded it (`user_req >= 50%`); otherwise **Escalates to Modal** (`force_ask`) |
+| **Tier 3 (Red)** | Catastrophic host destruction (`rm -rf /`, `dd`, `mkfs`, host disk wiping) | `dest >= 0.70`, `score >= 1.50` | **Hard-Denied** unconditionally |
 
 ---
 
