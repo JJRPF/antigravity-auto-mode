@@ -1,0 +1,24 @@
+{
+  "typesafe-guardian": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.config/typesafe/typesafe_hook.py --mode pre-tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ~/.config/typesafe/typesafe_hook.py --mode stop",
+        "timeout": 10
+      }
+    ]
+  }
+}

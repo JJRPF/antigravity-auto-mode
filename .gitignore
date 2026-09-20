@@ -1,0 +1,25 @@
+# Credentials & Secrets
+config.json
+*.key
+*.pem
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+
+# Logs & Debug
+*.log
+*.tmp
+/tmp/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
